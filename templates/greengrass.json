@@ -1,0 +1,400 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "AWS IoT Greengrass template for RustyNeuron tutorial.",
+  "Parameters": {
+    "LambdaName": {
+      "Type": "String"
+    },
+    "LambdaVersion": {
+      "Type": "String"
+    },
+    "CertificateHash": {
+      "Type": "String"
+    }
+  },
+  "Resources": {
+    "NeuronCore": {
+      "Type": "AWS::IoT::Thing",
+      "Properties": {
+        "ThingName": "NeuronCore"
+      }
+    },
+    "NeuronCoreDefinition": {
+      "Type": "AWS::Greengrass::CoreDefinition",
+      "Properties": {
+        "Name": "NeuronCoreDefinition"
+      }
+    },
+    "NeuronCoreDefinitionVersion": {
+      "Type": "AWS::Greengrass::CoreDefinitionVersion",
+      "Properties": {
+        "CoreDefinitionId": {
+          "Ref": "NeuronCoreDefinition"
+        },
+        "Cores": [
+          {
+            "Id": "NeuronCore",
+            "CertificateArn": {
+              "Fn::Join": [
+                ":",
+                [
+                  "arn:aws:iot",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  {
+                    "Ref": "CertificateHash"
+                  }
+                ]
+              ]
+            },
+            "ThingArn": {
+              "Fn::Join": [
+                ":",
+                [
+                  "arn:aws:iot",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "thing/NeuronCore"
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NeuronFunctionDefinition": {
+      "Type": "AWS::Greengrass::FunctionDefinition",
+      "Properties": {
+        "Name": "NeuronFunctionDefinition"
+      }
+    },
+    "NeuronFunctionDefinitionVersion": {
+      "Type": "AWS::Greengrass::FunctionDefinitionVersion",
+      "Properties": {
+        "FunctionDefinitionId": {
+          "Fn::GetAtt": [
+            "NeuronFunctionDefinition",
+            "Id"
+          ]
+        },
+        "DefaultConfig": {
+          "Execution": {
+            "IsolationMode": "NoContainer"
+          }
+        },
+        "Functions": [
+          {
+            "Id": "NeuronLambda",
+            "FunctionArn": {
+              "Fn::Join": [
+                ":",
+                [
+                  "arn:aws:lambda",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "function",
+                  {
+                    "Ref": "LambdaName"
+                  },
+                  {
+                    "Ref": "LambdaVersion"
+                  }
+                ]
+              ]
+            },
+            "FunctionConfiguration": {
+              "Pinned": false,
+              "Timeout": 5,
+              "EncodingType": "json",
+              "Environment": {
+                "Execution": {
+                  "IsolationMode": "NoContainer",
+                  "RunAs": {
+                    "Uid": "1",
+                    "Gid": "10"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "NeuronLoggerDefinition": {
+      "Type": "AWS::Greengrass::LoggerDefinition",
+      "Properties": {
+        "Name": "NeuronLoggerDefinition"
+      }
+    },
+    "NeuronLoggerDefinitionVersion": {
+      "Type": "AWS::Greengrass::LoggerDefinitionVersion",
+      "Properties": {
+        "LoggerDefinitionId": {
+          "Ref": "NeuronLoggerDefinition"
+        },
+        "Loggers": [
+          {
+            "Id": "NeuronLoggerCWSystem",
+            "Type": "AWSCloudWatch",
+            "Component": "GreengrassSystem",
+            "Level": "INFO"
+          },
+          {
+            "Id": "NeuronLoggerCWLambda",
+            "Type": "AWSCloudWatch",
+            "Component": "Lambda",
+            "Level": "INFO"
+          },
+          {
+            "Id": "NeuronLoggerLocalSystem",
+            "Type": "FileSystem",
+            "Component": "GreengrassSystem",
+            "Level": "INFO",
+            "Space": 25600
+          },
+          {
+            "Id": "NeuronLoggerLocalLambda",
+            "Type": "FileSystem",
+            "Component": "Lambda",
+            "Level": "INFO",
+            "Space": 25600
+          }
+        ]
+      }
+    },
+    "NeuronSubscriptionDefinition": {
+      "Type": "AWS::Greengrass::SubscriptionDefinition",
+      "Properties": {
+        "Name": "NeuronSubscriptionDefinition"
+      }
+    },
+    "NeuronSubscriptionDefinitionVersion": {
+      "Type": "AWS::Greengrass::SubscriptionDefinitionVersion",
+      "Properties": {
+        "SubscriptionDefinitionId": {
+          "Ref": "NeuronSubscriptionDefinition"
+        },
+        "Subscriptions": [
+          {
+            "Id": "Subscription1",
+            "Source": {
+              "Fn::Join": [
+                ":",
+                [
+                  "arn:aws:lambda",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "function",
+                  {
+                    "Ref": "LambdaName"
+                  },
+                  {
+                    "Ref": "LambdaVersion"
+                  }
+                ]
+              ]
+            },
+            "Subject": "sample/counter",
+            "Target": "cloud"
+          },
+          {
+            "Id": "Subscription2",
+            "Source": "cloud",
+            "Subject": "sample/trigger",
+            "Target": {
+              "Fn::Join": [
+                ":",
+                [
+                  "arn:aws:lambda",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  {
+                    "Ref": "AWS::AccountId"
+                  },
+                  "function",
+                  {
+                    "Ref": "LambdaName"
+                  },
+                  {
+                    "Ref": "LambdaVersion"
+                  }
+                ]
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "NeuronGroup": {
+      "Type": "AWS::Greengrass::Group",
+      "Properties": {
+        "Name": "NeuronGroup",
+        "RoleArn": {
+          "Fn::Join": [
+            ":",
+            [
+              "arn:aws:iam:",
+              {
+                "Ref": "AWS::AccountId"
+              },
+              "role/service-role/Greengrass_ServiceRole"
+            ]
+          ]
+        },
+        "InitialVersion": {
+          "CoreDefinitionVersionArn": {
+            "Ref": "NeuronCoreDefinitionVersion"
+          },
+          "FunctionDefinitionVersionArn": {
+            "Ref": "NeuronFunctionDefinitionVersion"
+          },
+          "SubscriptionDefinitionVersionArn": {
+            "Ref": "NeuronSubscriptionDefinitionVersion"
+          },
+          "LoggerDefinitionVersionArn": {
+            "Ref": "NeuronLoggerDefinitionVersion"
+          }
+        }
+      }
+    },
+    "NeuronPolicy": {
+      "Type": "AWS::IoT::Policy",
+      "Properties": {
+        "PolicyName": "NeuronPolicy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "iot:Publish",
+                "iot:Subscribe",
+                "iot:Connect",
+                "iot:Receive"
+              ],
+              "Resource": [
+                "*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "iot:GetThingShadow",
+                "iot:UpdateThingShadow",
+                "iot:DeleteThingShadow"
+              ],
+              "Resource": [
+                "*"
+              ]
+            },
+            {
+              "Effect": "Allow",
+              "Action": [
+                "greengrass:*"
+              ],
+              "Resource": [
+                "*"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    "NeuronPolicyAttachmet": {
+      "Type": "AWS::IoT::PolicyPrincipalAttachment",
+      "Properties": {
+        "PolicyName": {
+          "Ref": "NeuronPolicy"
+        },
+        "Principal": {
+          "Fn::Join": [
+            ":",
+            [
+              "arn:aws:iot",
+              {
+                "Ref": "AWS::Region"
+              },
+              {
+                "Ref": "AWS::AccountId"
+              },
+              {
+                "Ref": "CertificateHash"
+              }
+            ]
+          ]
+        }
+      },
+      "DependsOn": "NeuronPolicy"
+    },
+    "NeuronBaseCertificateAttachment": {
+      "Type": "AWS::IoT::ThingPrincipalAttachment",
+      "Properties": {
+        "ThingName": "NeuronCore",
+        "Principal": {
+          "Fn::Join": [
+            ":",
+            [
+              "arn:aws:iot",
+              {
+                "Ref": "AWS::Region"
+              },
+              {
+                "Ref": "AWS::AccountId"
+              },
+              {
+                "Ref": "CertificateHash"
+              }
+            ]
+          ]
+        }
+      },
+      "DependsOn": "NeuronCore"
+    }
+  },
+  "Outputs": {
+    "CommandToDeployGroup": {
+      "Value": {
+        "Fn::Join": [
+          " ",
+          [
+            "groupVersion=$(cut -d'/' -f6 <<<",
+            {
+              "Fn::GetAtt": [
+                "NeuronGroup",
+                "LatestVersionArn"
+              ]
+            },
+            ");",
+            "aws --region",
+            {
+              "Ref": "AWS::Region"
+            },
+            "greengrass create-deployment --group-id",
+            {
+              "Ref": "NeuronGroup"
+            },
+            "--deployment-type NewDeployment --group-version-id",
+            "$groupVersion"
+          ]
+        ]
+      }
+    }
+  }
+}
